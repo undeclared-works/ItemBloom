@@ -1,5 +1,5 @@
 /* IB-PWA-UPDATE-001: app shell offline cache, safe background update activation. */
-const CACHE = 'itembloom-tos-shell-v1-beta10-20261123-rc1';
+const CACHE = 'itembloom-tos-shell-v1-beta11-file-integrity-20261125';
 const CORE = ['./csv.js','./','./index.html','./manifest.webmanifest','./item-analysis.js','./csv-extractor.worker.js','./analysis-integration.js','./pwa-update.js','./save-guard.js','./drafts.js','./item-analysis/backup.js','./item-analysis/index.html','./item-analysis/styles.css','./item-analysis/parser.js','./item-analysis/excel.js','./item-analysis/compression.js','./item-analysis/workspace.js','./item-analysis/app.js','./item-analysis/paper-parser.js'];
 const EXTRA = ['./assets/deped-seal.png','./assets/itembloom-logo.png',
   './assets/itembloom-background.jpg','./icons/icon-192.png','./icons/icon-512.png'];

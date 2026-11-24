@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "ItemBloom TOS & Item Analysis (Beta 10)",
-  "short_name": "ItemBloom Beta 10",
+  "name": "ItemBloom TOS & Item Analysis (Beta 11)",
+  "short_name": "ItemBloom Beta 11",
   "description": "ItemBloom beta: offline-first Table of Specifications and browser-local ZipGrade/EvalBee CSV/Excel item analysis.",
   "start_url": "./",
   "scope": "./",

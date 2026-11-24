@@ -1,0 +1,29 @@
+name: Assessment file integrity
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'tests/**'
+      - 'save-guard.js'
+      - 'drafts.js'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - '.github/workflows/assessment-integrity.yml'
+  push:
+    branches: [beta11-file-integrity]
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.51.1
+      - run: google-chrome --version || npx playwright install --with-deps chromium
+      - run: node --test tests/*.test.cjs

@@ -1,4 +1,4 @@
-/* ItemBloom v1.0.0-beta.10: embeds the offline Item Analysis module in the existing TOS app.
+/* ItemBloom v1.0.0-beta.11: embeds the offline Item Analysis module in the existing TOS app.
    Existing extraction records and their IndexedDB schema remain untouched. */
 'use strict';
 (()=>{
