@@ -19,8 +19,9 @@ test('browser assessment lifecycle with simulated local files',async t=>{
  const types={'.html':'text/html','.js':'text/javascript','.json':'application/json','.webmanifest':'application/manifest+json','.css':'text/css','.png':'image/png','.jpg':'image/jpeg'};
  const server=http.createServer((req,res)=>{const name=new URL(req.url,'http://localhost').pathname.replace(/^\/ItemBloom\/?/,'');const file=path.resolve(root,name||'index.html');if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404).end();return;}res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- const browser=await chromium.launch({headless:true});
- t.after(async()=>{await browser.close();server.close();});
+ t.after(()=>server.close());
+ const browser=await chromium.launch({headless:true,...(fs.existsSync('/usr/bin/google-chrome')?{channel:'chrome'}:{})});
+ t.after(()=>browser.close());
  const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage();
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
  let confirm=true;page.on('dialog',dialog=>confirm?dialog.accept():dialog.dismiss());
@@ -89,7 +90,7 @@ test('browser assessment lifecycle with simulated local files',async t=>{
  assert.notEqual(first,second);assert.equal(await page2.evaluate(ids=>ids.every(id=>!!localStorage.getItem(RECOVERY_PREFIX+id)),[first,second]),true);
  // File conflict cannot replace an external modification.
  await page.evaluate(async()=>{const h=await testRoot.getFileHandle('Grade 8'+FILE_SUFFIX);const obj=JSON.parse(h.text);obj.section='External update';h.text=JSON.stringify(obj);});
- const conflict=page.evaluate(()=>saveNow());await page.getByRole('button',{name:'Cancel',exact:true}).filter({visible:true}).last().click();assert.equal(await conflict,false);
+ const conflict=page.evaluate(()=>saveNow());await page.locator('dialog[open]').getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await conflict,false);
  assert.equal(await page.evaluate(async()=>JSON.parse((await testRoot.getFileHandle('Grade 8'+FILE_SUFFIX)).text).section),'External update');
  assert.deepEqual(errors,[]);
 });
