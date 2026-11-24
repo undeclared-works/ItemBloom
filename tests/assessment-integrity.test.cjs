@@ -34,11 +34,11 @@ test('browser assessment lifecycle with simulated local files',async t=>{
   };
   window.testRoot=window.testDirectory();window.fixture=(grade,id)=>({...freshAssessmentState(),format:SCHEMA,assessmentId:id,grade:'GRADE '+grade,subject:'Creative Technologies',displayName:'Grade '+grade,total:20,dist:[40,20,20,10,5,5],rows:[{id:'c1',week:'1',text:'Explain a concept.',days:1},{id:'c2',week:'2',text:'Apply a procedure.',days:1}],header:{...defaultHeader,sy:'2026-2027'},draftMatrix:[[4,2,2,1,1,0],[4,2,2,1,0,1]],placementProvenance:{origin:'imported',edited:true,balanced:false},draftNotes:['Verified fixture.']});
   window.putTestFile=async(dir,name,obj)=>{const h=await dir.getFileHandle(name,{create:true});h.text=JSON.stringify(obj);return h;};
-  for(const g of [7,8,9])await putTestFile(testRoot,'Grade '+g+FILE_SUFFIX,fixture(g,'atest-grade-'+g));
+  for(const g of Array.from({length:12},(_,i)=>i+1))await putTestFile(testRoot,'Grade '+g+FILE_SUFFIX,fixture(g,'atest-grade-'+g));
   folderHandle=testRoot;await scanFolder();
  });
  const matrix=[[4,2,2,1,1,0],[4,2,2,1,0,1]];
- for(const grade of [7,8,9,7,8]){
+ for(const grade of [1,2,3,4,5,6,7,8,9,10,11,12,7,8,9,7,8]){
   const status=await page.evaluate(async g=>{await openSavedAssessment('atest-grade-'+g,true);const before=comparable(state);goScreen(2);return {grade:state.grade,matrix:state.draftMatrix,same:before===comparable(state),ready:!!result,dirty:isSavedDirty()};},grade);
   assert.deepEqual(status,{grade:'GRADE '+grade,matrix,same:true,ready:true,dirty:false});
  }
@@ -70,6 +70,13 @@ test('browser assessment lifecycle with simulated local files',async t=>{
  assert.equal(await page.evaluate(()=>recentAssessments.filter(x=>x.grade==='GRADE 7').length),2);
  const rename=page.evaluate(()=>renameSavedAssessment('atest-grade-7'));await page.locator('#fileActionName').fill('Renamed Grade 7');await page.locator('#fileActionSubmit').click();await rename;
  assert.deepEqual(await page.evaluate(async()=>JSON.parse((await testRoot.getFileHandle('Renamed Grade 7'+FILE_SUFFIX)).text).draftMatrix),matrix);
+ const moved=page.evaluate(()=>moveSavedAssessment('atest-grade-7'));await page.locator('#fileActionSubfolder').fill('Moved files');await page.locator('#fileActionSubmit').click();await moved;
+ assert.deepEqual(await page.evaluate(async()=>JSON.parse((await (await testRoot.getDirectoryHandle('Moved files')).getFileHandle('Renamed Grade 7'+FILE_SUFFIX)).text).draftMatrix),matrix);
+ assert.equal(await page.evaluate(()=>savedLocations.get('atest-grade-7').path),'Moved files');
+ // Save As must not overwrite an unrecognized destination.
+ await page.evaluate(async()=>{await openSavedAssessment('atest-grade-8',false);const h=await testRoot.getFileHandle('Unrecognized'+FILE_SUFFIX,{create:true});h.text='not an assessment';});
+ const collision=page.evaluate(()=>saveNow(true));await page.locator('#fileActionName').fill('Unrecognized');await page.locator('#fileActionSubmit').click();await page.locator('#saveConflictOverlay').waitFor({state:'visible'});assert.equal(await page.locator('#saveConflictOverwrite').isDisabled(),true);await page.locator('#saveConflictCancel').click();assert.equal(await collision,false);
+ assert.equal(await page.evaluate(async()=> (await testRoot.getFileHandle('Unrecognized'+FILE_SUFFIX)).text),'not an assessment');
  // Duplicate IDs cannot silently select a newer file.
  await page.evaluate(async()=>{const sub=await testRoot.getDirectoryHandle('duplicate',{create:true});await putTestFile(sub,'Duplicate'+FILE_SUFFIX,fixture(9,'atest-grade-9'));await scanFolder();});
  assert.equal(await page.evaluate(()=>savedLocations.has('atest-grade-9')),false);
