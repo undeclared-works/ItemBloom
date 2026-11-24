@@ -1,18 +1,14 @@
-# ItemBloom — GitHub Pages test deployment
+# ItemBloom — GitHub Pages
 
-Test mirror of ItemBloom v1.0.0-beta.10-rc. Cloudflare deployment is unchanged.
+ItemBloom is a local-first PWA for Table of Specifications and Item Analysis. The beta.11 file-integrity development branch is not a production release until regression tests pass.
 
-## Publish
-1. Open your public GitHub repository `undeclared-works/ItemBloom`.
-2. Upload the **contents** of this ZIP into the root of the `main` branch (not the ZIP itself and not a containing folder). Commit the changes.
-3. In Settings → Pages, choose **Deploy from a branch**, **main**, **/(root)** and Save.
-4. Visit https://undeclared-works.github.io/ItemBloom/ when deployment completes.
+## Deployment
+GitHub Pages serves `main` at https://undeclared-works.github.io/ItemBloom/. Publish only a reviewed release. Back up local assessments before updating.
 
-## Testing
-Use Edge and Chrome to reload the site 10 times on multiple laptops, including on a separate internet connection. Check the browser Console and Network tab for errors.
+## Local use
+Assessment files, learner data and recovery drafts remain on the device. Browser-origin settings and folder permissions may require reconnecting when changing hosting domains. Never commit learner data, assessment files or API secrets.
 
-## Important
-- This GitHub Pages mirror has its own browser origin and PWA cache. Site-specific local storage and folder permissions do not automatically transfer from Cloudflare Pages. Back up/export assessments before testing.
-- GitHub Pages is static; `/api/classify` (the Cloudflare Pages Function proxy) is not available here. Use the app's Copy AI Prompt / JSON import workflow for the test. Never upload API secrets or learner data to the repository.
-- Cloudflare `_headers` settings are not supported by GitHub Pages; the original file is excluded from this package.
-- Do not expect a new GitHub origin to eliminate browser, ISP, or network failures automatically.
+GitHub Pages serves static files only. Use Copy AI Prompt / JSON import, a personal Gemini key for private testing, or a separately hosted secure HTTPS proxy. No server proxy is supplied by this repository.
+
+## Beta 11
+Review the file-integrity requirements and regression tests before merging. Existing assessment files should be preserved; no bulk migration is performed.
