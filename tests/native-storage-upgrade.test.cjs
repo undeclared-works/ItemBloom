@@ -73,5 +73,17 @@ test('beta.10 to beta.11 upgrade, offline OPFS, and cross-tab save conflict',{ti
  await second.evaluate(()=>goScreen(-1));
  const recovered=await second.evaluate(()=>{openCachedDraft('atest-old-recovery',false);return {grade:state.grade,id:state.assessmentId,matrix:state.draftMatrix,legacy:cachedDrafts['atest-old-recovery'].section};});
  assert.equal(recovered.grade,'GRADE 8');assert.notEqual(recovered.id,'atest-old-recovery');assert.deepEqual(recovered.matrix,matrix);assert.equal(recovered.legacy,'Original recovery');
+ // Opening a saved document or changing appearance must not reset the new-file defaults.
+ await second.evaluate(()=>{goScreen(-1);applyTheme('sage');});
+ const beforePreview=await second.evaluate(()=>Object.keys(cachedDrafts).sort());
+ await second.evaluate(()=>openCachedDraft('atest-old-recovery',true));
+ assert.deepEqual(await second.evaluate(()=>Object.keys(cachedDrafts).sort()),beforePreview);
+ await second.evaluate(()=>goScreen(-1));
+ await second.evaluate(()=>openSavedAssessment('atest-native-grade8',true));
+ await second.locator('#themeToggle').click();await second.locator('#themeSelect').selectOption('dark');
+ await second.locator('#homeNav').click();
+ await second.locator('#newAssessment').click();
+ assert.deepEqual(await second.evaluate(()=>state.dist),[30,20,20,20,5,5]);
+ assert.equal(await second.evaluate(()=>state.header.school),'Test school');
  assert.deepEqual(errors,[]);
 });
