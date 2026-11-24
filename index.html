@@ -689,7 +689,8 @@ function saveBloomPreference(){try{const old=readPreferences(),next={...old,them
 function saveOutputPreference(){try{const old=readPreferences();draftStorage.writeJSON(PREF_STORE,{...old,header:{...state.header}})}catch{}}
 const RECOVERY_PREFIX='itembloom-tos-recovery-v1-';
 function readLegacyDrafts(){return draftStorage.readJSON(DRAFT_STORE,{},v=>v&&typeof v==='object'&&!Array.isArray(v));}
-function readDrafts(){const all={...readLegacyDrafts()};try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key?.startsWith(RECOVERY_PREFIX))continue;const record=draftStorage.readJSON(key,null);if(record)all[key.slice(RECOVERY_PREFIX.length)]=record;}}catch(ex){draftLimitWarning('Browser recovery could not be enumerated: '+ex.message);}return all;}
+const LEGACY_ACTIVE_KEYS={'legacy-active-current':STORE,'legacy-active-older':LEGACY_STORE};
+function readDrafts(){const all={...readLegacyDrafts()};for(const [id,key] of Object.entries(LEGACY_ACTIVE_KEYS)){const record=draftStorage.readJSON(key,null);if(draftPolicy.recognizable(record)&&!Object.values(all).some(value=>window.ItemBloomSaveGuard.fingerprint(value)===window.ItemBloomSaveGuard.fingerprint(record)))all[id]=record;}try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key?.startsWith(RECOVERY_PREFIX))continue;const record=draftStorage.readJSON(key,null);if(record)all[key.slice(RECOVERY_PREFIX.length)]=record;}}catch(ex){draftLimitWarning('Browser recovery could not be enumerated: '+ex.message);}return all;}
 const initialPrefs=readPreferences();
 if(validBloomPreference(initialPrefs))state.dist=initialPrefs.dist.map(Number);
 if(initialPrefs.header&&typeof initialPrefs.header==='object')state.header={...defaultHeader,...initialPrefs.header};
@@ -727,7 +728,7 @@ $('switchEdit').addEventListener('click',()=>{readOnly=false;updateModeUI();show
 
 function writeDraftRecord(id,obj){cachedDrafts[id]=structuredClone(obj);const saved=draftStorage.writeJSON(RECOVERY_PREFIX+id,obj);renderRecent();return saved;}
 function rememberDraft(){if(!state.assessmentId)return false;if(currentRecoverySourceId!==state.assessmentId||!currentRecoveryId){currentRecoveryId=newId();currentRecoverySourceId=state.assessmentId;}return writeDraftRecord(currentRecoveryId,{...structuredClone(state),format:SCHEMA});}
-function forgetDraft(id){const legacy=readLegacyDrafts();if(Object.prototype.hasOwnProperty.call(legacy,id)){delete legacy[id];if(!draftStorage.writeJSON(DRAFT_STORE,legacy))return false;}if(!draftStorage.remove(RECOVERY_PREFIX+id))return false;delete cachedDrafts[id];renderRecent();return true;}
+function forgetDraft(id){if(LEGACY_ACTIVE_KEYS[id]&&!draftStorage.remove(LEGACY_ACTIVE_KEYS[id]))return false;const legacy=readLegacyDrafts();if(Object.prototype.hasOwnProperty.call(legacy,id)){const original=legacy[id];for(const key of Object.values(LEGACY_ACTIVE_KEYS)){const value=draftStorage.readJSON(key,null);if(value&&window.ItemBloomSaveGuard.fingerprint(value)===window.ItemBloomSaveGuard.fingerprint(original)&&!draftStorage.remove(key))return false;}delete legacy[id];if(!draftStorage.writeJSON(DRAFT_STORE,legacy))return false;}if(!draftStorage.remove(RECOVERY_PREFIX+id))return false;delete cachedDrafts[id];renderRecent();return true;}
 function clearCurrentRecovery(){if(!currentRecoveryId)return true;if(!forgetDraft(currentRecoveryId))return false;currentRecoveryId=null;currentRecoverySourceId=null;return true;}
 function applyTheme(name){const allowed=['sage','dark','campus'];const value=allowed.includes(name)?name:'campus';document.body.dataset.theme=value;$('themeSelect').value=value;draftStorage.writeText('itembloom-tos-theme',value)}
 $('themeSelect').addEventListener('change',()=>{applyTheme($('themeSelect').value);saveBloomPreference()});
@@ -739,7 +740,7 @@ if(draftPolicy.recognizable(recoveredActive)){
  if(draftPolicy.reason(recoveredActive)||!/^GRADE (?:[1-9]|1[0-2])$/.test(recoveredActive.grade)){
   const id=typeof recoveredActive.assessmentId==='string'&&/^a[a-zA-Z0-9-]{6,80}$/.test(recoveredActive.assessmentId)?recoveredActive.assessmentId:newId();
   cachedDrafts[id]=structuredClone(recoveredActive);draftLimitWarning('An older draft exceeds editing limits. Use Recover/export drafts or its Home action to access its original contents.');
- }else{const recoveryId=typeof recoveredActive.assessmentId==='string'?recoveredActive.assessmentId:newId();if(!cachedDrafts[recoveryId])cachedDrafts[recoveryId]=structuredClone({...recoveredActive,assessmentId:recoveryId});state={...state,...recoveredActive,header:{...defaultHeader,...recoveredActive.header}};const test=deriveTestMetadata(recoveredActive);if(!recoveredActive.term)state.term=test.term;if(!recoveredActive.testType)state.testType=test.testType;}
+ }else{state={...state,...recoveredActive,header:{...defaultHeader,...recoveredActive.header}};const test=deriveTestMetadata(recoveredActive);if(!recoveredActive.term)state.term=test.term;if(!recoveredActive.testType)state.testType=test.testType;}
 }
 
 state.assessmentId=typeof state.assessmentId==='string'&&/^a[a-zA-Z0-9-]{6,80}$/.test(state.assessmentId)?state.assessmentId:newId();
@@ -1250,7 +1251,7 @@ window.ItemBloomReadAssessment=async(id)=>{
  return {id,title:obj.displayName||displayDefaultName(obj),grade:obj.grade,subject:obj.subject,section:obj.section||'',term:obj.term||'',schoolYear:obj.header?.sy||'',testType:obj.testType||'',otherTestType:obj.otherTestType||'',total:Number(obj.total),rows:(obj.rows||[]).map((r,i)=>({id:String(r.id||i+1),text:String(r.text||''),week:r.week})),draftMatrix:obj.draftMatrix||null};
 };
 function openCachedDraft(id,view=false){let obj=cachedDrafts[id];if(!obj)return showMessage('Draft not found.','warn');if(draftPolicy.reason(obj)){showDraftRecovery(id);return;}try{obj={...structuredClone(obj),assessmentId:newId(),displayName:(obj.displayName||displayDefaultName(obj))+' (Recovered copy)'};loadAssessment(obj,false);}catch(ex){showMessage('Cannot open draft: '+ex.message,'error');return;}readOnly=view;updateModeUI();goScreen(0);showMessage('Draft recovered. Save to a folder for a durable copy.','')}
-function removeCachedDraft(id){if(!window.confirm('Delete this browser draft? Saved files are not affected.'))return;if(!forgetDraft(id))return;if(currentRecoveryId===id||state.assessmentId===id){currentRecoveryId=null;currentRecoverySourceId=null;clearTimeout(autosaveTimer);autosaveTimer=null;state=freshAssessmentState();result=null;source='';diskBound=false;draftStorage.remove(STORE);renderTop();resetUndoHistory();goScreen(-1)}showMessage('Draft deleted.','')}
+function removeCachedDraft(id){if(!window.confirm('Delete this browser draft? Saved files are not affected.'))return;if(!forgetDraft(id))return;if(currentRecoveryId===id||state.assessmentId===id){currentRecoveryId=null;currentRecoverySourceId=null;clearTimeout(autosaveTimer);autosaveTimer=null;state=freshAssessmentState();result=null;source='';diskBound=false;renderTop();resetUndoHistory();goScreen(-1)}showMessage('Draft deleted.','')}
 function copyBrowserDraft(id){const original=cachedDrafts[id];if(!original)return;if(draftPolicy.reason(original)){showDraftRecovery(id);return;}const now=new Date().toISOString(),copy={...structuredClone(original),assessmentId:newId(),createdAt:now,updatedAt:now,displayName:(original.displayName||displayDefaultName(original))+' (Copy)'};const issue=draftPolicy.reason(copy);if(issue){draftLimitWarning(issue);return;}const saved=writeDraftRecord(copy.assessmentId,copy);if(saved)showMessage('Draft copied.','')}
 async function renameBrowserDraft(id){const original=cachedDrafts[id];if(!original)return;if(draftPolicy.reason(original)){showDraftRecovery(id);return;}const values=await fileAction('rename',original.displayName||displayDefaultName(original),false);if(!values)return;const obj={...structuredClone(original),displayName:values.name,updatedAt:new Date().toISOString()};const issue=draftPolicy.reason(obj);if(issue){draftLimitWarning(issue);return;}writeDraftRecord(id,obj);if(state.assessmentId===id){state.displayName=values.name;persist()}renderRecent()}
 function validShape(obj){return obj&&Array.isArray(obj.rows)&&obj.rows.length>=1&&obj.rows.length<=100&&Array.isArray(obj.dist)&&obj.dist.length===6&&obj.dist.every(v=>Number.isFinite(Number(v))&&Number(v)>=0)}
@@ -1345,7 +1346,7 @@ function saveToFolder(manual=false){
    savedFileBaseline=window.ItemBloomSaveGuard.fingerprint({...snapshot,format:SCHEMA});
    state.updatedAt=snapshot.updatedAt;state.displayName=snapshot.displayName;
    diskBound=true;savedOriginal=structuredClone(snapshot);savedBaseline=comparable(snapshot);
-   draftStorage.remove(STORE);
+   
    await scanFolder();clearCurrentRecovery();updateModeUI();updateSaveIndicator('Saved changes to existing assessment');return true;
   }finally{saving=false;}
  });writeQueue=job;return job;
@@ -1391,7 +1392,7 @@ async function saveNow(saveAs=false){if(saveCommandBusy)return false;saveCommand
    state=structuredClone(snapshot);diskBound=true;boundLocation={dir:target.dir,path:target.path,name:fileName};
    savedFileBaseline=window.ItemBloomSaveGuard.fingerprint({...snapshot,format:SCHEMA});
    savedOriginal=structuredClone(snapshot);savedBaseline=comparable(snapshot);
-   draftStorage.remove(STORE);
+   
    await scanFolder();clearCurrentRecovery();resetUndoHistory();updateModeUI();
    updateSaveIndicator('Saved to '+(target.path||folderHandle.name));showMessage(existingHandle?'Assessment file overwritten with confirmation.':'Saved: '+values.name,'');return true;
   }
@@ -1468,7 +1469,7 @@ openSavedAssessment=trackUpdateOperation(openSavedAssessment);
 scanFolder=trackUpdateOperation(scanFolder);
 restoreFolder=trackUpdateOperation(restoreFolder);
 renderTop();updatePreviewAccess();renderRecent();statusFolder();resetAIAssistance();goScreen(-1);resetUndoHistory();updateModeUI();$('message').classList.add('hidden');restoreFolder();
-window.addEventListener('storage',ev=>{if(ev.key===DRAFT_STORE||ev.key?.startsWith(RECOVERY_PREFIX)){cachedDrafts={...readDrafts()};renderRecent();}});
+window.addEventListener('storage',ev=>{if(ev.key===DRAFT_STORE||ev.key===STORE||ev.key===LEGACY_STORE||ev.key?.startsWith(RECOVERY_PREFIX)){const pending=currentRecoveryId&&cachedDrafts[currentRecoveryId];cachedDrafts={...readDrafts()};if(pending&&!cachedDrafts[currentRecoveryId])cachedDrafts[currentRecoveryId]=pending;renderRecent();}});
 
 // Compact help dialogs: no instructional paragraphs occupying the main workspace.
 const HELP_INFO={
